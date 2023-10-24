@@ -11,9 +11,10 @@
 - [Desafio 2](https://github.com/CleitonOS/compass-linux-desafio2)
 
 ## 📝 Tabela de conteúdos
-- [Instalando tudo que é necessário](#step1)
-- [](#step2)
-- [](#step3)
+- [Instalando tudo que é necessário (Passo 1)](#step1)
+- [Configurando o Wordpress na VM02 (Passo 2)](#step2)
+- [Configurações de segurança e permissões (Passo 3)](#step3)
+
 
 
 ## 🖥️ Instalando tudo que é necessário (Passo 1)<a name = "step1"></a>
@@ -158,3 +159,132 @@
     define('DB_HOST', 'IP_VM01');
     ```
     - Não esqueça de colocar as informações que você definiu, as informações acima servem apenas como exemplo.
+
+## Configurando o Wordpress na VM02 (Passo 2)<a name = "step2"></a>
+Os últimos passos envolvendo o Wordpress já fazem parte da nossa configuração inicial, agora vamos aprofundar nessa questão.
+
+1. Configurando a pasta de uploads do Wordpress
+
+- Acesse novamente o arquivo wp-config.php em /var/www/html/wordpress/wp-config.php
+
+    ```
+    sudo nano wp-config.php
+    ```
+
+- Nas últimas linhas, antes de "require_once ABSPATH . 'wp-settings.php'" adicione esse comando:
+
+    ```
+    define('UPLOADS', 'wp-content/uploads');
+    ```
+
+    - Observação: "wp-content/uploads" é a pasta que defini como armazenamento dos uploads (normalmente é o padrão do wordpress), você pode configurar da sua forma.
+
+2. Configurando o arquivo de configuração do Apache para o site
+Em sistemas baseados em Red Hat, o arquivo de configuração padrão do Apache é geralmente chamado de 'httpd.conf' ou 'wordpress.conf', o caminho do arquivo pode variar dependendo de como você fez todo o processo e do seu sistema.
+
+- Caminho do arquivo:
+
+    ```
+    sudo nano /etc/httpd/conf/httpd.conf
+    ```
+
+- Dentro do arquivo:
+    </br>
+    - Mude ou descomente as duas últimas linhas para ouvir uma porta ou IP específico. Nesse caso, vamos deixar a porta 80 descomentada.
+    
+    <img src="./Screenshots/arquivo-httpd-conf-part1.png" width="60%">
+
+    </br>
+
+    - Lembre-se desse usuário pode ser útil para conceder permissões de acesso para o servidor mais tarde.
+
+    <img src="./Screenshots/arquivo-httpd-conf-part2.png" width="60%">
+
+    </br>
+
+    - Insira as linhas a partir de <VirtualHost *:80> para definir o diretório raiz e as configurações do Apache para o WordPress:
+
+    <img src="./Screenshots/arquivo-httpd-conf-part3.png" width="60%">
+
+    Observação: Troque ServerAdmin por root@IP_VM02 (VM do Wordpress), ServerName troque também pelo seu "IP_VM02".
+
+    - Salve e feche o arquivo de configuração. Reinicie o Apache para aplicar as alterações:
+
+    ```
+    sudo systemctl restart httpd
+    ```
+
+## Configurações de segurança e permissões (Passo 3)<a name = "step3"></a>
+
+1. Verifique as permissões no MariaDB (VM01)
+
+- Verificando se o usuário do Wordpress tem as permissões necessárias:
+
+    ```
+    SHOW GRANTS FOR 'wordpressuser'@'IP_VM02';
+    ```
+
+- Concedendo permissões se necessário:
+    ```
+    GRANT ALL PRIVILEGES ON *.* TO 'wordpressuser'@'IP_VM02' IDENTIFIED BY 'sua_senha' WITH GRANT OPTION;
+    ```
+
+- Tente se conectar a partir da VM02 para acessar o MariaDB na VM01:
+
+    ```
+    mysql -h IP_VM01 -u wordpressuser -p
+    ```
+
+- Caso ocorra algum erro, certifique de que as configurações de segurança do MariaDB não estejam bloqueando o acesso remoto.
+    - A pasta de configuração é "/etc/my.cnf.d"; no meu caso o arquivo que continha "bind-address" era "server.cnf"
+    - Descomente "bind-address=0.0.0.0"
+    - Feito isso tente a conexão novamente.
+
+    <img src="./Screenshots/segurança-mariadb.png" width="60%">
+
+2. Verifique o firewall na VM01
+- Certifique-se de que o firewall na VM01 não esteja bloqueando a porta 3306, que é a porta padrão para conexões MySQL/MariaDB.
+
+    ```
+    firewall-cmd --list-all
+    ```
+
+- Caso a porta não esteja aberta, utilize os seguintes comandos:
+
+    ```
+    firewall-cmd --permanent --zone=public --add-port=3306/tcp
+    firewall-cmd --reload
+    ```
+
+3. Verifique as políticas do SELinux que podem bloquear conexão de serviços httpd aos bancos de dados.
+
+    Esse software de segurança pode causar alguns problemas do tipo "mysqli_real_connct() in /wp-includes/class-wpdb.php". Nesse caso, vamos resolver essa questão:
+
+- Vendo as políticas que afetam os servidores web:
+    ```
+    getsebool -a | grep -E “^httpd_(unified|can_network_connect)?(_db)?\s”
+    httpd_can_network_connect –> off
+    httpd_can_network_connect_db –> off
+    httpd_unified –> off
+    ```
+
+- As políticas que permitem esse tipo de conexão estão todas desligadas (off). Vamos mudar isso:
+
+    - Permitir essas políticas específicas (sinalizador -P para persistir a reinicializações)
+
+    ```
+    sudo setsebool -P httpd_can_network_connect 1
+    sudo setsebool -P httpd_can_network_connect_db 1
+    sudo setsebool -P httpd_unified 1
+    ```
+
+- Valide se a alteração está em vigor
+
+    ```
+    getsebool -a | grep -E “^httpd_(unified|can_network_connect)?(_db)?\s”
+    httpd_can_network_connect –> on
+    httpd_can_network_connect_db –> on
+    httpd_unified –> on
+    ```
+
+- Observação: Pode haver maneiras melhores de configurar as políticas, mas essas mudanças foram suficiente para eu continuar com a configuração do Wordpress.
