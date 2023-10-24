@@ -12,8 +12,10 @@
 
 ## 📝 Tabela de conteúdos
 - [Instalando tudo que é necessário (Passo 1)](#step1)
-- [Configurando o Wordpress na VM02 (Passo 2)](#step2)
+- [Configurando o Wordpress e Apache VM02 (Passo 2)](#step2)
 - [Configurações de segurança e permissões (Passo 3)](#step3)
+- [Acesse e configure o Wordpress (Passo 4)](#step4)
+- [Referências](#documentation)
 
 
 
@@ -160,7 +162,7 @@
     ```
     - Não esqueça de colocar as informações que você definiu, as informações acima servem apenas como exemplo.
 
-## Configurando o Wordpress na VM02 (Passo 2)<a name = "step2"></a>
+## Configurando o Wordpress e Apache na VM02 (Passo 2)<a name = "step2"></a>
 Os últimos passos envolvendo o Wordpress já fazem parte da nossa configuração inicial, agora vamos aprofundar nessa questão.
 
 1. Configurando a pasta de uploads do Wordpress
@@ -256,7 +258,7 @@ Em sistemas baseados em Red Hat, o arquivo de configuração padrão do Apache �
     firewall-cmd --reload
     ```
 
-3. Verifique as políticas do SELinux que podem bloquear conexão de serviços httpd aos bancos de dados.
+3. Verifique as políticas do SELinux (na VM02) que podem bloquear conexão de serviços httpd aos bancos de dados.
 
     Esse software de segurança pode causar alguns problemas do tipo "mysqli_real_connct() in /wp-includes/class-wpdb.php". Nesse caso, vamos resolver essa questão:
 
@@ -288,3 +290,65 @@ Em sistemas baseados em Red Hat, o arquivo de configuração padrão do Apache �
     ```
 
 - Observação: Pode haver maneiras melhores de configurar as políticas, mas essas mudanças foram suficiente para eu continuar com a configuração do Wordpress.
+
+## Acesse e configure o Wordpress (Passo 4)<a name = "step4"></a>
+
+1. Coloque o IP da VM02 onde está instalado o Wordpress
+- Se tudo ocorrer bem, você estará nessa página:
+
+    <img src="./Screenshots/instalar-wordpress-2.jpg" width="60%">
+    
+    - Proceda informando as informações do seu site e usuário.
+
+    - Depois é só fazer o login com seu usuário e senha para entrar na página de administrador do Wordpress.
+
+2. Fazendo Upload de imagens no wordpress (De volta ao Linux)
+
+- Certifique que o proprietário correto esteja configurado (no caso o usuário do servidor web), normalmente esse usuário é por padrão "apache".
+- Para checar qual é o usuário, novamente teremos que voltar no diretório de configurações do apache, utilize o seguinte comando:
+
+    ```
+    sudo nano /etc/httpd/conf/httpd.conf
+    ``` 
+
+    <img src="./Screenshots/arquivo-httpd-conf-part2.png" width="60%">
+
+- Definindo o proprietário correto:
+
+    ```
+    sudo chown -R apache:apache /var/www/html/wordpress/wp-content
+    sudo chown -R apache:apache /var/www/html/wordpress/wp-content/uploads
+    ```
+
+- Defina as permissões adequadas para os diretórios:
+
+    ```
+    sudo chmod -R 755 /var/www/html/wordpress/wp-content
+    sudo chmod -R 755 /var/www/html/wordpress/wp-content/uploads
+    ```
+
+    - Isso garante que o servidor web possa gravar na pasta de uploads.
+
+## Compartilhamento do estáticos do wordpress através do NFS (Extra - imcompleto)
+
+## Referências utilizadas:<a name="documentation"></a>
+
+[Mudando permissões dos arquivos - Wordpress](https://developer.wordpress.org/advanced-administration/server/file-permissions/)
+
+[Para problemas para Upar imagens no Wordpress](https://www.aaaenos.com/en/unable-to-create-directory-uploads-year-month-is-its-parent-directory-writable-by-the-server/)
+
+[Para problemas para Upar imagens no Wordpress](https://www.aaaenos.com/en/unable-to-create-directory-uploads-year-month-is-its-parent-directory-writable-by-the-server/)
+
+[Sobre SELinux](https://www.ibm.com/docs/pt-br/db2/11.5?topic=security-enhanced-linux-selinux)
+
+[Para erros ao estalebecer conexão entre Database e Wordpress "Error establishing a database connection"](https://dev.to/bobrundle/how-to-fix-wordpress-error-establishing-a-database-connection-idl)
+
+[Para erros do tipo "mysqli_real_connct() in /wp-includes/class-wpdb.php"](https://wordpress.org/support/topic/first-time-install-issue-error-hy000-2002/)
+
+[Instalação MariaDB - Oracle Linux](https://techviewleo.com/install-mariadb-on-oracle-rocky-linux/?expand_article=1)
+
+[Básicos do MariaDB](https://mariadb.com/kb/en/mariadb-basics/)
+
+[Como utilizar firewall-cmd](https://www.monsta.com.br/admin/uploader/uploads/Utilizando_o_Firewalld.pdf)
+
+[Wordpress compartilhando conteúdo no NFS Server](https://mohsensy.github.io/sysadmin/2020/04/01/wordpress-nfs.html)
